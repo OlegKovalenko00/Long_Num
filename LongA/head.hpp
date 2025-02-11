@@ -52,6 +52,7 @@ class LongNumber {
 
         // Изменение кол-ва разрядов после запятой
         void new_precis(int newPrecis);
+        std::vector<bool> operator""_longnum(long double number);
 };
 
 #endif
