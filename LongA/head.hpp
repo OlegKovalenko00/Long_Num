@@ -11,10 +11,12 @@
 #include <utility>
 
 class LongNumber {
-    public:
+    private:
         std::vector <bool> bits; // Число
         int precis; // Кол-во битов после точки
         bool neg; // Знак
+
+    public:
 
         // Функция перевода числа из double в vector
         std::vector <bool> convert_to_binary(long double number, int precision, bool neg);
