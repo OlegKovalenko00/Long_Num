@@ -457,6 +457,11 @@ void LongNumber::new_precision(int new_precision) {
     precision_ = new_precision;
     bit_vector_ = convert_to_binary(value, new_precision, (value < 0));
 }
+LongNumber operator"" _longnum(long double number) {
+    const int default_precision = 10;
+    bool is_negative = (number < 0);
+    return LongNumber(number, default_precision, is_negative);
+}
 
 // Вспомогательная функция для вывода бинарного представления числа
 void print_binary(const std::vector<bool> &bit_vec, int precision, bool is_negative = false) {
