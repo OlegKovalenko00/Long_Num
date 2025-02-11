@@ -64,11 +64,6 @@ static std::string subtract_strings(const std::string &a_str, const std::string 
     return remove_leading_zeros(result);
 }
 
-// Предполагается, что в head.hpp определён класс LongNumber с полями:
-//   std::vector<bool> bit_vector_;
-//   int precision_;
-//   bool is_negative_;
-
 // Конструктор из строки
 LongNumber::LongNumber(const std::string &str, int precision) {
     std::string number_str = str;
