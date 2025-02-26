@@ -9,5 +9,6 @@
 int main(int argc, char *argv[])
 {
     LongNumber pi = calculate_pi(precision * 4);
+    
     return 0;
 }
