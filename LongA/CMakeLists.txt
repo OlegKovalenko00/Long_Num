@@ -10,5 +10,5 @@ add_subdirectory(bibl)
 add_executable(pi pi.cpp)
 target_link_libraries(pi bibl)
 
-add_executable(test tests.cpp)
+add_executable(test test.cpp)
 target_link_libraries(test bibl)
