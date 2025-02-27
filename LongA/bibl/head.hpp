@@ -17,8 +17,12 @@ private:
     bool is_negative_;              // Знак числа
 
 public:
+    // Геттеры для доступа к приватным членам
+    const std::vector<bool>& get_bit_vector() const { return bit_vector_; }
+    int get_precision() const { return precision_; }
+    bool get_is_negative() const { return is_negative_; }
+
     static LongNumber calculate_pi(int precision);
-    
     // Функция перевода числа из long double в вектор битов
     std::vector<bool> convert_to_binary(long double number, int precision, bool is_negative);
 
@@ -39,6 +43,7 @@ public:
 
     // Арифметические операции
     LongNumber operator+(const LongNumber &other) const;
+    LongNumber operator-() const;
     LongNumber operator-(const LongNumber &other) const;
     LongNumber operator*(const LongNumber &other) const;
     LongNumber operator/(const LongNumber &other) const;

@@ -73,7 +73,6 @@ int main() {
     std::cout << "num1 with new precision: " << num1 << std::endl;
     std::cout << "Expected new num1:   <expected bit array with 15 fractional bits>" << std::endl;
     std::cout << std::endl;
-
     // Тест пользовательского литерала
     LongNumber literalTest = 3.1415926535_longnum;
     std::cout << "User literal:        " << literalTest << std::endl;

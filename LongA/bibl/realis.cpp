@@ -235,101 +235,162 @@ std::vector<bool> LongNumber::convert_to_binary(long double number, int precisio
 }
 
 // Арифметические операции
+static void align_bit_vectors(const LongNumber &num1, const LongNumber &num2,
+    std::vector<bool> &aligned_bits1, std::vector<bool> &aligned_bits2,
+    int &aligned_int_length, int &aligned_frac_length) {
+    
+    int num1_int_length = num1.get_bit_vector().size() - num1.get_precision();
+    int num2_int_length = num2.get_bit_vector().size() - num2.get_precision();
+    aligned_int_length = std::max(num1_int_length, num2_int_length);
+    aligned_frac_length = std::max(num1.get_precision(), num2.get_precision());
+
+    // Выравнивание для num1
+    {
+        int num1_leading_zeros = aligned_int_length - num1_int_length;
+        for (int i = 0; i < num1_leading_zeros; i++)
+            aligned_bits1.push_back(false);
+        const auto &num1_bits = num1.get_bit_vector();
+        aligned_bits1.insert(aligned_bits1.end(), num1_bits.begin(), num1_bits.end());
+        int num1_trailing_zeros = aligned_frac_length - num1.get_precision();
+        for (int i = 0; i < num1_trailing_zeros; i++)
+            aligned_bits1.push_back(false);
+    }
+    
+    // Выравнивание для num2
+    {
+        int num2_leading_zeros = aligned_int_length - num2_int_length;
+        for (int i = 0; i < num2_leading_zeros; i++)
+            aligned_bits2.push_back(false);
+        const auto &num2_bits = num2.get_bit_vector();
+        aligned_bits2.insert(aligned_bits2.end(), num2_bits.begin(), num2_bits.end());
+        int num2_trailing_zeros = aligned_frac_length - num2.get_precision();
+        for (int i = 0; i < num2_trailing_zeros; i++)
+            aligned_bits2.push_back(false);
+    }
+}
+
+
 
 // Оператор сложения (выравнивание по двоичной точке)
 LongNumber LongNumber::operator+(const LongNumber &other) const {
-    // Если знаки разные, сводим к вычитанию
-    if (is_negative_ != other.is_negative_) {
-        LongNumber temp = other;
-        temp.is_negative_ = !temp.is_negative_;
-        return *this - temp;
-    }
-    int prec = precision_;
-    // Вычисляем длину целой части для каждого числа
-    size_t int_A = bit_vector_.size() - prec;
-    size_t int_B = other.bit_vector_.size() - prec;
-    size_t max_int = std::max(int_A, int_B);
-    size_t total_length = max_int + prec;
-
-    // Дополняем числа нулями слева до одинаковой длины
-    std::vector<bool> A(total_length, false);
-    std::vector<bool> B(total_length, false);
-    size_t offset_A = total_length - bit_vector_.size();
-    size_t offset_B = total_length - other.bit_vector_.size();
-    std::copy(bit_vector_.begin(), bit_vector_.end(), A.begin() + offset_A);
-    std::copy(other.bit_vector_.begin(), other.bit_vector_.end(), B.begin() + offset_B);
-
-    std::vector<bool> result(total_length, false);
-    bool carry = false;
-    for (int i = static_cast<int>(total_length) - 1; i >= 0; i--) {
-        int sum = (A[i] ? 1 : 0) + (B[i] ? 1 : 0) + (carry ? 1 : 0);
-        result[i] = (sum % 2) != 0;
-        carry = (sum / 2) != 0;
-    }
-    if (carry) {
-        result.insert(result.begin(), true);
-    }
-    LongNumber sum_result(0.0, prec, is_negative_);
-    sum_result.bit_vector_ = trim_leading_zeros(result);
-    return sum_result;
-}
-
-// Оператор вычитания с корректным вычислением модуля и знака
-LongNumber LongNumber::operator-(const LongNumber &other) const {
-    // Если знаки разные, сводим к сложению
-    if (is_negative_ != other.is_negative_) {
-        LongNumber temp = other;
-        temp.is_negative_ = !temp.is_negative_;
-        return *this + temp;
-    }
-    int prec = precision_;
-    size_t int_A = bit_vector_.size() - prec;
-    size_t int_B = other.bit_vector_.size() - prec;
-    size_t max_int = std::max(int_A, int_B);
-    size_t total_length = max_int + prec;
-
-    std::vector<bool> A(total_length, false);
-    std::vector<bool> B(total_length, false);
-    size_t offset_A = total_length - bit_vector_.size();
-    size_t offset_B = total_length - other.bit_vector_.size();
-    std::copy(bit_vector_.begin(), bit_vector_.end(), A.begin() + offset_A);
-    std::copy(other.bit_vector_.begin(), other.bit_vector_.end(), B.begin() + offset_B);
-
-    int cmp = compare_bit_vectors(A, B);
-    // Если числа равны, результат 0
-    if (cmp == 0) {
-        std::vector<bool> zero(total_length, false);
-        LongNumber result(0.0, prec, false);
-        result.bit_vector_ = zero;
-        return result;
-    }
-    bool result_negative;
-    std::vector<bool> result_bits;
-    if (cmp > 0) {
-        result_negative = is_negative_;
-        result_bits = subtract_bit_vectors(A, B);
+    std::vector<bool> a, b;
+    int new_int_len, new_frac_len;
+    align_bit_vectors(*this, other, a, b, new_int_len, new_frac_len);
+    if (is_negative_ == other.is_negative_) {
+        int n = a.size();
+        int carry = 0;
+        std::vector<bool> sum(n, false);
+        for (int i = n - 1; i >= 0; i--) {
+            int bit_a = a[i] ? 1 : 0;
+            int bit_b = b[i] ? 1 : 0;
+            int s = bit_a + bit_b + carry;
+            sum[i] = (s % 2 != 0);
+            carry = s / 2;
+        }
+        if (carry) {
+            sum.insert(sum.begin(), true);
+            new_int_len++;
+        }
+        LongNumber res(0, new_frac_len, is_negative_);
+        res.bit_vector_ = sum;
+        return res;
     } else {
-        result_negative = !is_negative_;
-        result_bits = subtract_bit_vectors(B, A);
+        bool equal = true;
+        bool a_is_larger = false;
+        for (size_t i = 0; i < a.size(); i++) {
+            if (a[i] != b[i]) {
+                equal = false;
+                a_is_larger = a[i];
+                break;
+            }
+        }
+        if (equal) {
+            std::vector<bool> zero(a.size(), false);
+            LongNumber res(0, new_frac_len, false);
+            res.bit_vector_ = zero;
+            return res;
+        }
+        const std::vector<bool> &larger = a_is_larger ? a : b;
+        const std::vector<bool> &smaller = a_is_larger ? b : a;
+        int n = larger.size();
+        int borrow = 0;
+        std::vector<bool> diff(n, false);
+        for (int i = n - 1; i >= 0; i--) {
+            int bit_l = larger[i] ? 1 : 0;
+            int bit_s = smaller[i] ? 1 : 0;
+            int d = bit_l - bit_s - borrow;
+            if (d < 0) {
+                d += 2;
+                borrow = 1;
+            } else {
+                borrow = 0;
+            }
+            diff[i] = (d != 0);
+        }
+        bool res_sign = a_is_larger ? is_negative_ : other.is_negative_;
+        LongNumber res(0, new_frac_len, res_sign);
+        res.bit_vector_ = diff;
+        return res;
     }
-    LongNumber diff_result(0.0, prec, result_negative);
-    diff_result.bit_vector_ = trim_leading_zeros(result_bits);
-    return diff_result;
 }
 
-// Оператор умножения с корректным масштабированием
+LongNumber LongNumber::operator-(const LongNumber &other) const {
+    LongNumber temp = other;
+    temp.is_negative_ = !temp.is_negative_;
+    return *this + temp;
+}
+
 LongNumber LongNumber::operator*(const LongNumber &other) const {
-    int prec = precision_;
-    std::vector<bool> prod = multiply_bit_vectors(bit_vector_, other.bit_vector_);
-    // Корректный правый сдвиг на precision битов (деление на 2^(precision))
-    prod = right_shift(prod, prec);
-    LongNumber result(0.0, prec, is_negative_ != other.is_negative_);
-    result.bit_vector_ = trim_leading_zeros(prod);
-    return result;
-}
+    std::vector<bool> a, b;
+    int new_int_len, new_frac_len;
+    align_bit_vectors(*this, other, a, b, new_int_len, new_frac_len);
+    int total_len = a.size();
 
-// Оператор деления с использованием двоичного длинного деления
-// Оператор деления с использованием двоичного длинного деления
+    std::vector<int> a_le(total_len), b_le(total_len);
+    for (int i = 0; i < total_len; i++) {
+        a_le[i] = a[total_len - 1 - i] ? 1 : 0;
+        b_le[i] = b[total_len - 1 - i] ? 1 : 0;
+    }
+
+    int prod_size = total_len + total_len;
+    std::vector<int> prod(prod_size, 0);
+    for (int i = 0; i < total_len; i++) {
+        for (int j = 0; j < total_len; j++) {
+            prod[i + j] += a_le[i] * b_le[j];
+        }
+    }
+
+    for (int i = 0; i < prod_size; i++) {
+        if (prod[i] >= 2) {
+            int carry = prod[i] / 2;
+            prod[i] %= 2;
+            if (i + 1 < prod_size)
+                prod[i + 1] += carry;
+            else {
+                prod.push_back(carry);
+                prod_size++;
+            }
+        }
+    }
+
+    if (prod_size <= new_frac_len) {
+        std::vector<bool> zero(1, false);
+        LongNumber res(0, new_frac_len, false);
+        res.bit_vector_ = zero;
+        return res;
+    }
+    std::vector<int> shifted(prod.begin() + new_frac_len, prod.end());
+    int res_size = shifted.size();
+    std::vector<bool> result(res_size, false);
+    for (int i = 0; i < res_size; i++) {
+        result[i] = (shifted[res_size - 1 - i] != 0);
+    }
+
+    bool res_sign = (is_negative_ != other.is_negative_);
+    LongNumber res(0, new_frac_len, res_sign);
+    res.bit_vector_ = result;
+    return res;
+}
 LongNumber LongNumber::operator/(const LongNumber &other) const {
     if (other.bit_vector_.empty() || (other.bit_vector_.size() == 1 && !other.bit_vector_[0])) {
         throw std::runtime_error("Division by zero.");
